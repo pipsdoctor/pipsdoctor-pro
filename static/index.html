@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PipsDoctor Pro Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden font-sans">
+
+  <!-- Header Navigation -->
+  <header class="flex items-center justify-between px-6 py-2.5 border-b border-slate-800 bg-slate-900/90 z-20">
+    <div class="flex items-center space-x-3">
+      <!-- PipsDoctor Robot Avatar -->
+      <div class="w-9 h-9 rounded-full bg-slate-800 border-2 border-emerald-500/80 flex items-center justify-center text-lg shadow-lg">
+        🤖
+      </div>
+      <div>
+        <h1 class="text-base font-bold text-white tracking-wide leading-tight">
+          PipsDoctor <span class="text-blue-500">Pro</span>
+        </h1>
+        <p id="feedBadge" class="text-[10px] text-slate-400 font-mono">Connecting to Market Feed...</p>
+      </div>
+    </div>
+
+    <!-- Navigation / Action Bar -->
+    <div class="flex items-center space-x-2">
+      <select id="pairSelect" class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded text-xs text-white outline-none">
+        <option value="EURUSD">EUR/USD</option>
+        <option value="GBPUSD">GBP/USD</option>
+        <option value="USDJPY">USD/JPY</option>
+        <option value="XAUUSD">GOLD (XAU/USD)</option>
+      </select>
+
+      <select id="tfSelect" class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded text-xs text-white outline-none">
+        <option value="15m">15m</option>
+        <option value="1h" selected>1h</option>
+        <option value="1d">1D</option>
+      </select>
+
+      <button id="scanBtn" onclick="runAnalysis()" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded text-xs font-semibold">
+        Scan Chart
+      </button>
+
+      <button type="button" onclick="toggleModal('accountModal')" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded text-xs font-semibold">
+        🔗 <span id="accStatusBtn">Link MT5</span>
+      </button>
+
+      <button type="button" onclick="toggleModal('academyModal')" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/40 px-3 py-1.5 rounded text-xs font-semibold">
+        🎓 Academy (Full Curriculum)
+      </button>
+
+      <button type="button" onclick="toggleModal('journalModal')" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/40 px-3 py-1.5 rounded text-xs font-semibold">
+        📓 Journal
+      </button>
+
+      <button type="button" onclick="toggleModal('chatModal')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-semibold">
+        🤖 Ask Bot
+      </button>
+    </div>
+  </header>
+
+  <!-- Workspace -->
+  <main class="flex-1 flex overflow-hidden relative">
+    <div id="chartContainer" class="flex-1 h-full w-full"></div>
+
+    <!-- Sidebar Dashboard -->
+    <aside class="w-80 border-l border-slate-800 bg-slate-900/80 p-4 flex flex-col overflow-y-auto space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <span class="text-xs uppercase text-slate-400 font-semibold">Bias Edge</span>
+        <span id="biasBadge" class="px-2 py-0.5 rounded text-xs font-bold bg-slate-800 text-slate-300">--</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="bg-slate-800/60 p-2 rounded">
+          <p class="text-slate-400">Entry</p>
+          <p id="entryPrice" class="font-mono font-bold text-white">--</p>
+        </div>
+        <div class="bg-slate-800/60 p-2 rounded">
+          <p class="text-slate-400">Confidence</p>
+          <p id="confidence" class="font-mono font-bold text-white">--</p>
+        </div>
+        <div class="bg-slate-800/60 p-2 rounded border-l-2 border-rose-500">
+          <p class="text-rose-400">Stop Loss</p>
+          <p id="stopLoss" class="font-mono font-bold text-rose-400">--</p>
+        </div>
+        <div class="bg-slate-800/60 p-2 rounded border-l-2 border-emerald-500">
+          <p class="text-emerald-400">Take Profit</p>
+          <p id="takeProfit" class="font-mono font-bold text-emerald-400">--</p>
+        </div>
+      </div>
+
+      <!-- Execution Panel -->
+      <div class="bg-slate-800/50 p-2.5 rounded border border-emerald-500/30 space-y-2">
+        <div class="flex justify-between items-center text-xs">
+          <span class="font-semibold text-slate-200">Confirm Execution</span>
+          <span id="mt5Status" class="text-[10px] text-amber-400 font-mono">Unlinked</span>
+        </div>
+        <div class="flex gap-2">
+          <input id="lotInput" type="number" step="0.01" value="0.01" min="0.01" class="w-20 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-center font-mono text-white outline-none">
+          <button onclick="executeInAppTrade()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1 px-3 rounded text-xs flex items-center justify-center gap-1">
+            ⚡ Execute Trade
+          </button>
+        </div>
+      </div>
+
+      <!-- Confluences -->
+      <div class="space-y-1">
+        <span class="text-xs font-semibold text-amber-400">Price Action & CRT</span>
+        <ul id="paList" class="text-xs text-slate-300 space-y-1">
+          <li class="italic text-slate-500">Awaiting scan...</li>
+        </ul>
+      </div>
+
+      <div class="space-y-1">
+        <span class="text-xs font-semibold text-blue-400">Trend & Indicators</span>
+        <ul id="techList" class="text-xs text-slate-300 space-y-1">
+          <li class="italic text-slate-500">Awaiting scan...</li>
+        </ul>
+      </div>
+
+      <!-- Macro News -->
+      <div class="space-y-1 pt-2 border-t border-slate-800">
+        <span class="text-xs font-semibold text-purple-400">Macro News Events</span>
+        <div id="newsList" class="space-y-1.5 text-xs"></div>
+      </div>
+    </aside>
+
+    <!-- FULL 8-MODULE ACADEMY DRAWER -->
+    <div id="academyModal" class="hidden absolute top-0 left-0 h-full w-[540px] bg-slate-900/98 border-r border-slate-700 shadow-2xl p-5 flex flex-col z-30 space-y-4 overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3 bg-slate-900 sticky top-0 z-10">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🎓</span>
+          <div>
+            <h3 class="font-bold text-base text-amber-400">PipsDoctor Forex Academy</h3>
+            <p class="text-[10px] text-slate-400">Institutional Masterclass Curriculum (8 Modules)</p>
+          </div>
+        </div>
+        <button type="button" onclick="toggleModal('academyModal')" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs leading-relaxed text-slate-300 pr-1">
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-amber-400 font-bold text-sm">
+            <span>Module 1: Market Architecture & Mechanics</span>
+            <span class="text-[10px] bg-amber-500/20 px-1.5 py-0.5 rounded">Core Foundations</span>
+          </div>
+          <p>The Forex market is an over-the-counter (OTC) decentralized network of central banks, liquidity providers, and retail traders.</p>
+          <div class="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1">
+            <p><strong>• Base & Quote:</strong> In EUR/USD = 1.0850, EUR is Base, USD is Quote. You pay 1.0850 USD for 1 EUR.</p>
+            <p><strong>• Bid / Ask / Spread:</strong> Bid is your selling price; Ask is your buying price. <span class="text-emerald-400 font-mono">Spread = Ask - Bid</span>.</p>
+            <p><strong>• Pip Value Formula:</strong> Standard pip is 0.0001 (0.01 for Yen pairs). On EUR/USD, 1 Standard Lot = $10.00 per pip.</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-blue-400 font-bold text-sm">
+            <span>Module 2: Precision Lot Sizing & Risk Math</span>
+            <span class="text-[10px] bg-blue-500/20 px-1.5 py-0.5 rounded">Risk Management</span>
+          </div>
+          <p>Never guess position sizes. Every lot size must be reverse-calculated directly from your technical stop loss distance:</p>
+          <div class="bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-[11px] text-blue-300">
+            Position Size (Lots) = (Account Balance × Risk %) / (SL Pips × Pip Value)
+          </div>
+          <div class="p-2 bg-slate-900 rounded border border-slate-800 text-[11px]">
+            <strong>Worked Example:</strong> On a $10,000 account risking 1% ($100) with a 25-pip SL on EUR/USD ($10/pip):<br>
+            <span class="text-emerald-400 font-mono">$100 ÷ (25 × $10) = 0.40 Lots.</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-emerald-400 font-bold text-sm">
+            <span>Module 3: Candle Range Theory (CRT)</span>
+            <span class="text-[10px] bg-emerald-500/20 px-1.5 py-0.5 rounded">PipsDoctor Edge</span>
+          </div>
+          <p>Candle Range Theory treats every closed high-timeframe candle (Daily, 4H, 1H) as a structural range containing 4 reference points:</p>
+          <ul class="list-disc pl-4 space-y-0.5 text-slate-300">
+            <li><strong>Range High (RH) & Range Low (RL):</strong> Prior liquidity extremes.</li>
+            <li><strong>Equilibrium (EQ - 50% Midpoint):</strong> The balance point where institutional value resets.</li>
+          </ul>
+          <p class="text-amber-400 text-[11px]"><strong>Execution Rule:</strong> When price spikes past RH/RL to sweep stops and reclaims the range with a body close inside, enter targeting Equilibrium and the opposing boundary.</p>
+        </div>
+
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-purple-400 font-bold text-sm">
+            <span>Module 4: Advanced Market Structure</span>
+            <span class="text-[10px] bg-purple-500/20 px-1.5 py-0.5 rounded">Smart Money Concepts</span>
+          </div>
+          <p><strong>• BOS (Break of Structure):</strong> Confirmed trend continuation when a candle body closes beyond the previous swing high or low.</p>
+          <p><strong>• CHoCH (Change of Character):</strong> Trend reversal warning. The first candle body close violating the decisive opposing swing level.</p>
+          <p><strong>• FVG (Fair Value Gap):</strong> A 3-candle imbalance where Candle 1 and Candle 3 wicks do not overlap.</p>
+        </div>
+
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-rose-400 font-bold text-sm">
+            <span>Module 5: Global Session Timing & Judas Swings</span>
+            <span class="text-[10px] bg-rose-500/20 px-1.5 py-0.5 rounded">Algorithmic Cycles</span>
+          </div>
+          <div class="space-y-1 text-[11px]">
+            <p><strong>• Asian Session (00:00 - 08:00 UTC):</strong> Establishes range accumulation and liquidity extremes.</p>
+            <p><strong>• London Open (07:00 - 10:00 UTC):</strong> The "Judas Swing" phase—a fake run that sweeps the Asian high or low before initiating the true daily direction.</p>
+            <p><strong>• New York Open (12:00 - 16:00 UTC):</strong> High-volume expansion session; highest activity on USD pairs and Gold.</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-yellow-400 font-bold text-sm">
+            <span>Module 6: Gold (XAU/USD) Playbook</span>
+            <span class="text-[10px] bg-yellow-500/20 px-1.5 py-0.5 rounded">High Volatility</span>
+          </div>
+          <p>Gold tracks the price of one troy ounce of gold in USD. 1 point move ($1.00) = 10 pips. A $10 daily expansion = 100 pips.</p>
+          <p>Inverse correlation: A dropping US Dollar Index (DXY) triggers upside momentum in Gold.</p>
+        </div>
+
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-cyan-400 font-bold text-sm">
+            <span>Module 7: Expectancy & Drawdown Recovery</span>
+            <span class="text-[10px] bg-cyan-500/20 px-1.5 py-0.5 rounded">Capital Preservation</span>
+          </div>
+          <p>With a 1:2 Risk/Reward ratio, you only need a <strong>33.4% win rate</strong> to break even. A 40–50% win rate produces steady compounding.</p>
+        </div>
+
+        <div class="bg-slate-800/70 p-3.5 rounded-lg border border-slate-700 space-y-2">
+          <div class="flex justify-between items-center text-indigo-400 font-bold text-sm">
+            <span>Module 8: Professional Trader Psychology</span>
+            <span class="text-[10px] bg-indigo-500/20 px-1.5 py-0.5 rounded">Execution Discipline</span>
+          </div>
+          <p><strong>2-Loss Daily Circuit Breaker:</strong> If you take two consecutive losses in a single trading day, shut down the platform immediately to prevent emotional spiral.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Linking Modal -->
+    <div id="accountModal" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-sm space-y-3">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+          <h3 class="font-bold text-sm">🔗 Connect MT5 Broker Account</h3>
+          <button type="button" onclick="toggleModal('accountModal')" class="text-slate-400 hover:text-white font-bold">✕</button>
+        </div>
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">MT5 Account Number (Login)</label>
+            <input id="mt5Login" type="number" placeholder="e.g. 1615555434" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 font-mono text-white outline-none" required>
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Password</label>
+            <input id="mt5Password" type="password" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white outline-none" required>
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Broker Server</label>
+            <input id="mt5Server" type="text" placeholder="e.g. Exness-MT5Real" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white outline-none" required>
+          </div>
+          <button type="button" id="mt5SubmitBtn" onclick="handleMT5Connect()" class="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white transition">
+            Connect MT5
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Journal Modal -->
+    <div id="journalModal" class="hidden absolute top-0 left-0 h-full w-96 bg-slate-900 border-r border-slate-800 p-4 flex flex-col z-30 space-y-3">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+        <h3 class="font-bold text-sm">📓 Trading Journal</h3>
+        <button type="button" onclick="toggleModal('journalModal')" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="space-y-2 text-xs">
+        <input id="jPair" placeholder="Pair (e.g. EURUSD)" class="w-full bg-slate-800 p-1.5 rounded border border-slate-700 text-white outline-none">
+        <select id="jType" class="w-full bg-slate-800 p-1.5 rounded border border-slate-700 text-white outline-none">
+          <option value="BUY">BUY</option>
+          <option value="SELL">SELL</option>
+        </select>
+        <input id="jEntry" type="number" step="any" placeholder="Entry Price" class="w-full bg-slate-800 p-1.5 rounded border border-slate-700 text-white outline-none">
+        <input id="jSL" type="number" step="any" placeholder="Stop Loss" class="w-full bg-slate-800 p-1.5 rounded border border-slate-700 text-white outline-none">
+        <input id="jTP" type="number" step="any" placeholder="Take Profit" class="w-full bg-slate-800 p-1.5 rounded border border-slate-700 text-white outline-none">
+        <button type="button" onclick="saveJournalTrade()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded font-bold">Save Trade</button>
+      </div>
+      <div id="journalList" class="flex-1 overflow-y-auto space-y-2 text-xs"></div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div id="chatModal" class="hidden absolute bottom-4 right-4 w-80 h-96 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col z-30">
+      <div class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-950 rounded-t-xl">
+        <span class="text-xs font-bold text-emerald-400">🤖 PipsDoctor Advisor</span>
+        <button type="button" onclick="toggleModal('chatModal')" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div id="chatMessages" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
+        <div class="bg-slate-800 p-2 rounded text-slate-300">
+          Hello! Ask me any question on CRT, lot sizing, market trends, or session timing.
+        </div>
+      </div>
+      <div class="p-2 border-t border-slate-800 flex gap-1">
+        <input id="chatInput" placeholder="Ask about CRT, risk..." class="flex-1 bg-slate-800 px-2 py-1 text-xs rounded border border-slate-700 outline-none text-white">
+        <button type="button" onclick="sendChatMessage()" class="bg-emerald-600 px-3 py-1 rounded text-xs font-bold">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let chart = null;
+    let candleSeries = null;
+    let latestAnalysis = null;
+    let isConnectedMT5 = false;
+
+    function toggleModal(id) {
+      document.getElementById(id).classList.toggle('hidden');
+      if (id === 'journalModal') loadJournal();
+    }
+
+    function initChart() {
+      const container = document.getElementById('chartContainer');
+      if (!container) return false;
+      container.innerHTML = "";
+
+      chart = LightweightCharts.createChart(container, {
+        layout: { background: { color: '#020617' }, textColor: '#94a3b8' },
+        grid: { vertLines: { color: '#0f172a' }, horzLines: { color: '#0f172a' } },
+        timeScale: { borderColor: '#1e293b', timeVisible: true },
+        rightPriceScale: { borderColor: '#1e293b' }
+      });
+
+      candleSeries = chart.addCandlestickSeries({
+        upColor: '#10b981', downColor: '#f43f5e',
+        wickUpColor: '#10b981', wickDownColor: '#f43f5e',
+        borderVisible: false
+      });
+
+      window.addEventListener('resize', () => {
+        if (chart && container) chart.resize(container.clientWidth, container.clientHeight);
+      });
+      return true;
+    }
+
+    async function runAnalysis() {
+      const btn = document.getElementById('scanBtn');
+      if (!candleSeries) initChart();
+
+      const pair = document.getElementById('pairSelect').value;
+      const tf = document.getElementById('tfSelect').value;
+      if (btn) btn.innerText = "Scanning...";
+
+      try {
+        const res = await fetch(`/api/analyze?symbol=${pair}&timeframe=${tf}`);
+        if (!res.ok) throw new Error("Could not fetch market data");
+        const data = await res.json();
+        latestAnalysis = data;
+
+        document.getElementById('feedBadge').innerText = `${data.source} • Price: ${data.current_price}`;
+
+        if (candleSeries && data.candles && data.candles.length > 0) {
+          candleSeries.setData(data.candles);
+          chart.timeScale().fitContent();
+        }
+
+        const badge = document.getElementById('biasBadge');
+        badge.innerText = data.direction;
+        badge.className = "px-2 py-0.5 rounded text-xs font-bold " + 
+          (data.direction === "BUY" ? "bg-emerald-500/20 text-emerald-400" :
+           data.direction === "SELL" ? "bg-rose-500/20 text-rose-400" : "bg-slate-800 text-slate-300");
+
+        document.getElementById('entryPrice').innerText = data.entry_price;
+        document.getElementById('confidence').innerText = data.confidence_score + "%";
+        document.getElementById('stopLoss').innerText = data.stop_loss;
+        document.getElementById('takeProfit').innerText = data.take_profit;
+
+        const paList = document.getElementById('paList');
+        paList.innerHTML = "";
+        data.price_action_reasons.forEach(r => {
+          const li = document.createElement('li');
+          li.innerText = "• " + r;
+          paList.appendChild(li);
+        });
+
+        const techList = document.getElementById('techList');
+        techList.innerHTML = "";
+        data.technical_reasons.forEach(r => {
+          const li = document.createElement('li');
+          li.innerText = "• " + r;
+          techList.appendChild(li);
+        });
+
+        const newsList = document.getElementById('newsList');
+        newsList.innerHTML = "";
+        data.news_events.forEach(n => {
+          const div = document.createElement('div');
+          const isHigh = n.impact === "HIGH";
+          div.className = "p-1.5 rounded border " + (isHigh ? "border-rose-900/50 bg-rose-950/20" : "border-slate-800 bg-slate-800/30");
+          div.innerHTML = `<span class="text-[9px] font-bold px-1 py-0.5 rounded ${isHigh ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700 text-slate-300'}">${n.impact}</span> <span class="text-slate-300">${n.title}</span>`;
+          newsList.appendChild(div);
+        });
+
+      } catch (err) {
+        alert("Scan Error: " + err.message);
+      } finally {
+        if (btn) btn.innerText = "Scan Chart";
+      }
+    }
+
+    async function handleMT5Connect() {
+      const login = document.getElementById('mt5Login').value;
+      const password = document.getElementById('mt5Password').value;
+      const server = document.getElementById('mt5Server').value;
+      const btn = document.getElementById('mt5SubmitBtn');
+
+      if (!login || !password || !server) {
+        return alert("Please fill in your MT5 Login, Password, and Server.");
+      }
+
+      btn.innerText = "Connecting...";
+
+      try {
+        const res = await fetch('/api/account/connect', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ login: parseInt(login), password, server })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Connection failed");
+
+        isConnectedMT5 = true;
+        document.getElementById('accStatusBtn').innerText = `MT5: #${data.login}`;
+        document.getElementById('mt5Status').innerText = `Bal: $${data.balance}`;
+        document.getElementById('mt5Status').className = "text-[10px] text-emerald-400 font-mono";
+        toggleModal('accountModal');
+        alert(`MT5 #${data.login} Connected! Live broker data and execution active.`);
+        runAnalysis();
+      } catch (err) {
+        alert("MT5 Error: " + err.message);
+      } finally {
+        btn.innerText = "Connect MT5";
+      }
+    }
+
+    async function executeInAppTrade() {
+      if (!latestAnalysis || latestAnalysis.direction === "NEUTRAL") {
+        return alert("No active BUY or SELL setup identified.");
+      }
+      if (!isConnectedMT5) {
+        toggleModal('accountModal');
+        return alert("Please link your MT5 account first.");
+      }
+
+      const lot = parseFloat(document.getElementById('lotInput').value) || 0.01;
+      const ok = confirm(`Execute ${latestAnalysis.direction} on ${latestAnalysis.symbol} (${lot} Lots)?`);
+      if (!ok) return;
+
+      try {
+        const res = await fetch('/api/trade/execute', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            symbol: latestAnalysis.symbol,
+            action: latestAnalysis.direction,
+            volume: lot,
+            sl: latestAnalysis.stop_loss,
+            tp: latestAnalysis.take_profit
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Trade failed");
+        alert(`Trade Executed!\nTicket: #${data.ticket}\nPrice: ${data.price}`);
+      } catch (err) {
+        alert("Execution Error: " + err.message);
+      }
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const box = document.getElementById('chatMessages');
+      box.innerHTML += `<div class="bg-blue-600/30 p-2 rounded text-right">${text}</div>`;
+      input.value = "";
+
+      const pair = document.getElementById('pairSelect').value;
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ message: text, symbol: pair, current_bias: latestAnalysis ? latestAnalysis.direction : "NEUTRAL" })
+      });
+      const data = await res.json();
+      box.innerHTML += `<div class="bg-slate-800 p-2 rounded text-emerald-400">🤖 ${data.reply}</div>`;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function saveJournalTrade() {
+      const pair = document.getElementById('jPair').value;
+      const type = document.getElementById('jType').value;
+      const entry = document.getElementById('jEntry').value;
+      const sl = document.getElementById('jSL').value;
+      const tp = document.getElementById('jTP').value;
+
+      if (!pair || !entry || !sl || !tp) return alert("Please fill all journal fields");
+
+      const trades = JSON.parse(localStorage.getItem('pips_trades') || '[]');
+      trades.push({ pair, type, entry, sl, tp, date: new Date().toLocaleDateString() });
+      localStorage.setItem('pips_trades', JSON.stringify(trades));
+
+      document.getElementById('jPair').value = "";
+      document.getElementById('jEntry').value = "";
+      document.getElementById('jSL').value = "";
+      document.getElementById('jTP').value = "";
+      loadJournal();
+    }
+
+    function loadJournal() {
+      const list = document.getElementById('journalList');
+      const trades = JSON.parse(localStorage.getItem('pips_trades') || '[]');
+      list.innerHTML = trades.length ? "" : "<p class='text-slate-500 italic'>No trades recorded yet.</p>";
+      trades.reverse().forEach(t => {
+        list.innerHTML += `
+          <div class="bg-slate-800/80 p-2 rounded border border-slate-700">
+            <div class="flex justify-between font-bold">
+              <span>${t.pair} (${t.type})</span>
+              <span class="text-slate-400">${t.date}</span>
+            </div>
+            <p class="text-slate-400">E: ${t.entry} | SL: ${t.sl} | TP: ${t.tp}</p>
+          </div>
+        `;
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initChart();
+      runAnalysis();
+    });
+  </script>
+</body>
+</html>
