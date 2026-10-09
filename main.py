@@ -325,7 +325,8 @@ def bot_chat(req: ChatRequest):
         reply = f"PipsDoctor Bot active on {req.symbol} ({req.current_bias}). Ask me about CRT, lot sizing, or trading strategy!"
     return ChatResponse(reply=reply)
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")if __name__ == "__main__":
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
+if __name__ == "__main__":
     import uvicorn
     import os
     port = int(os.environ.get("PORT", 8000))
