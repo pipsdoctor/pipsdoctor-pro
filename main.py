@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
@@ -324,6 +325,10 @@ def bot_chat(req: ChatRequest):
     else:
         reply = f"PipsDoctor Bot active on {req.symbol} ({req.current_bias}). Ask me about CRT, lot sizing, or trading strategy!"
     return ChatResponse(reply=reply)
+
+@app.get("/")
+async def read_index():
+    return FileResponse("static/index.html")
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 if __name__ == "__main__":
