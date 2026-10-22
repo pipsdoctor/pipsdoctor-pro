@@ -338,7 +338,7 @@ async def bot_chat(req: ChatRequest):
             f"Current Market Bias: {req.current_bias}\n"
             f"User Question: {req.message}"
         )
-        models_to_try = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-3.8-flash"]
+        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash"]
         last_err = None
         for m in models_to_try:
             try:
