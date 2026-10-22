@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+import os
+from google import genai
+from google.genai import types
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
@@ -311,20 +314,40 @@ def analyze(symbol: str = "EURUSD", timeframe: str = "1h"):
         candles=candles
     )
 
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+SYSTEM_PROMPT = """
+You are PipsDoctor AI, an elite institutional Forex trading assistant and educator.
+Expertise:
+- Smart Money Concepts (SMC): liquidity sweeps, fair value gaps (FVG), order blocks.
+- Candle Range Theory (CRT): high/low boundaries, wick sweeps, candle body closes.
+- Strict Risk Management: lot size calculations, 1% rule, risk-to-reward ratios.
+- Gold (XAUUSD) & major FX pairs session dynamics (London & New York sessions).
+Keep your answers direct, practical, institutional, and under 4-5 sentences.
+"""
+
 @app.post("/api/chat", response_model=ChatResponse)
-def bot_chat(req: ChatRequest):
-    q = req.message.lower()
-    if any(k in q for k in ["buy", "sell", "trend", "direction"]):
-        reply = f"Current bias for {req.symbol} is {req.current_bias}. Look for pullbacks into discount/premium value areas before executing."
-    elif any(k in q for k in ["crt", "range"]):
-        reply = "Candle Range Theory: Observe previous high/low boundaries. Enter when wicks sweep liquidity and candle bodies close back inside the range."
-    elif any(k in q for k in ["lot", "risk"]):
-        reply = "Lot Size Formula: Lot Size = (Account Balance × Risk %) / (SL Pips × Pip Value). Keep risk strictly at 1% per trade."
-    elif any(k in q for k in ["gold", "xau"]):
-        reply = "Gold (XAUUSD): 1 pip = 0.10 points ($1 move = 10 pips). London Open (07:00 UTC) and NY Open (12:00 UTC) offer highest volume."
-    else:
-        reply = f"PipsDoctor Bot active on {req.symbol} ({req.current_bias}). Ask me about CRT, lot sizing, or trading strategy!"
-    return ChatResponse(reply=reply)
+async def bot_chat(req: ChatRequest):
+    if not GEMINI_API_KEY:
+        return ChatResponse(reply="API key not detected. Verify GEMINI_API_KEY in Render settings.")
+
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        prompt = (
+            f"Active Symbol: {req.symbol}\n"
+            f"Current Market Bias: {req.current_bias}\n"
+            f"User Question: {req.message}"
+        )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT
+            )
+        )
+        return ChatResponse(reply=response.text.strip())
+    except Exception as e:
+        return ChatResponse(reply=f"AI Bot error: {str(e)}")
 @app.get("/api/calendar")
 def get_economic_calendar():
     url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
