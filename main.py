@@ -325,6 +325,37 @@ def bot_chat(req: ChatRequest):
     else:
         reply = f"PipsDoctor Bot active on {req.symbol} ({req.current_bias}). Ask me about CRT, lot sizing, or trading strategy!"
     return ChatResponse(reply=reply)
+@app.get("/api/calendar")
+def get_economic_calendar():
+    url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        res = requests.get(url, headers=headers, timeout=6)
+        if res.status_code == 200:
+            events = res.json()
+            filtered = []
+            for ev in events:
+                # Target High and Medium impact news affecting USD, EUR, GBP, or Gold
+                if ev.get("impact") in ["High", "Medium"] and ev.get("country") in ["USD", "EUR", "GBP"]:
+                    filtered.append({
+                        "impact": ev.get("impact").upper(),
+                        "currency": ev.get("country"),
+                        "title": ev.get("title"),
+                        "date": ev.get("date"),
+                        "forecast": ev.get("forecast") or "-",
+                        "previous": ev.get("previous") or "-"
+                    })
+            return {"status": "success", "news": filtered[:8]}
+    except Exception as e:
+        pass
+    
+    return {
+        "status": "fallback",
+        "news": [
+            {"impact": "HIGH", "currency": "USD", "title": "Federal Reserve Rate Decision", "forecast": "-", "previous": "-"},
+            {"impact": "HIGH", "currency": "EUR", "title": "ECB Monetary Policy Statement", "forecast": "-", "previous": "-"}
+        ]
+    }
 
 @app.get("/")
 async def read_index():
