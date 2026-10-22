@@ -338,14 +338,23 @@ async def bot_chat(req: ChatRequest):
             f"Current Market Bias: {req.current_bias}\n"
             f"User Question: {req.message}"
         )
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT
-            )
-        )
-        return ChatResponse(reply=response.text.strip())
+        models_to_try = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-3.8-flash"]
+        last_err = None
+        for m in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=m,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT
+                    )
+                )
+                return ChatResponse(reply=response.text.strip())
+            except Exception as inner_e:
+                last_err = inner_e
+                continue
+
+        return ChatResponse(reply=f"AI Bot error: {str(last_err)}")
     except Exception as e:
         return ChatResponse(reply=f"AI Bot error: {str(e)}")
 @app.get("/api/calendar")
